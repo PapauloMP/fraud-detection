@@ -40,8 +40,8 @@ DATASET_DIR = os.path.join(OUTPUT_BASE_DIR, "datasets - class 2")
 os.makedirs(DATASET_DIR, exist_ok=True)
 
 MODELS = ["deepseek-v3.1:671b-cloud", "qwen3.5:397b-cloud", "gpt-oss:120b-cloud", "kimi-k2.5:cloud", "gemini-3-flash-preview:cloud"]
-MODEL = MODELS[3]
-OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}2.csv")
+MODEL = MODELS[1]
+OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}3.csv")
 
 
 def load_prompts(path):
@@ -73,7 +73,7 @@ def call_ollama(prompt, retries=3):
 def main():
     print(f"Tentando abrir: {INPUT_FILE}")
 
-    df = pd.read_csv(INPUT_FILE).iloc[26:86]
+    df = pd.read_csv(INPUT_FILE).iloc[76:77]
     prompts_map = load_prompts(PROMPTS_FILE)
 
     target_profile = "specialist"
