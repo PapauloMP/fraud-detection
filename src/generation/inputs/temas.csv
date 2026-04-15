@@ -1,11 +1,11 @@
 prompt,tema
-0,"Apropriação cultural. Ocorre, de fato, no Carnaval, uma apropriação indevida de uma cultura por outra? Esse fenômeno pode ser considerado positivo ou negativo? Por quê?"
+0,A apropriação cultural no Carnaval brasileiro: entre valorização cultural e reprodução de desigualdades
 1,Qualificação e o futuro do emprego
-2,"Supremo Tribunal Federal e opinião pública. Explique por que, de acordo com o seu ponto de vista, o STF ganhou tanto destaque nos últimos anos e por que sua atuação não agrada à maioria da população brasileira"
+2,O protagonismo do Supremo Tribunal Federal e os desafios da relação entre judiciário e opinião pública no Brasil contemporâneo
 3,"Ciência, tecnologia e superação dos limites humanos: uma eventual revolução transumanista"
-4,O réu deve poder recorrer às últimas instâncias em liberdade ou na prisão
+4,O direito de recorrer em liberdade no sistema penal brasileiro e seus impactos na justiça e na segurança pública
 5,Agrotóxicos ou defensivos agrícolas: qual o nome mais adequado para pesticidas
-6,A Amazônia deve continuar a ser brasileira ou ganhar status internacional? Por quê?
+6,A soberania brasileira sobre a Amazônia e os desafios da governança ambiental global
 7,Os desafios da regulamentação das criptomoedas e seus impactos no sistema financeiro e na soberania estatal
 8,Desinformação e pós-verdade: entraves à valorização do conhecimento científico na sociedade contemporânea
 9,"Os desafios do financiamento do ensino superior no Brasil: entre a gratuidade, a privatização e a equidade social"
@@ -56,7 +56,7 @@ prompt,tema
 54,A importância da vacinação e os perigos do movimento antivacina no Brasil
 55,Desafios para a garantia dos direitos territoriais e culturais dos povos indígenas no Brasil
 56,A crise do sistema prisional brasileiro e a falência das políticas de ressocialização
-57,Democratização do acesso ao cinema no Brasil (Tema oficial ENEM 2019)
+57,Democratização do acesso ao cinema no Brasil
 58,O avanço da agropecuária e os impactos no desmatamento dos biomas brasileiros
 59,O problema da fome e da insegurança alimentar no Brasil contemporâneo
 60,Os impactos econômicos e sociais da Reforma da Previdência na vida dos brasileiros
@@ -65,11 +65,11 @@ prompt,tema
 63,A responsabilidade social e empresarial na mitigação dos impactos ambientais no Brasil
 64,A importância e os desafios da educação sexual nas escolas brasileiras
 65,O debate sobre a redução da maioridade penal na sociedade brasileira
-66,Manipulação do comportamento do usuário pelo controle de dados na internet (Tema oficial ENEM 2018)
+66,Manipulação do comportamento do usuário pelo controle de dados na internet
 67,A urgência da demarcação de terras indígenas e a preservação de suas identidades
 68,Desafios para a valorização e conservação do patrimônio histórico e cultural brasileiro
 69,Os riscos do uso de agrotóxicos para a saúde pública e a biodiversidade brasileira
-70,Desafios para a prevenção de Doenças Sexualmente Transmissíveis (DSTs) entre os jovens
+70,Desafios para a prevenção de Infecções Sexualmente Transmissíveis (ISTs) entre os jovens
 71,Caminhos para a prevenção do suicídio e a promoção da saúde mental no Brasil
 72,Os impactos das fake news na democracia e a necessidade de educação midiática
 73,A efetivação dos direitos e garantias fundamentais previstos na Constituição de 1988
@@ -80,7 +80,7 @@ prompt,tema
 78,Os desafios do Ensino Médio para combater a evasão escolar no Brasil
 79,A superlotação dos presídios e a violação sistemática dos direitos humanos no Brasil
 80,Caminhos para o combate ao racismo estrutural na sociedade brasileira
-81,Caminhos para combater a intolerância religiosa no Brasil (Tema oficial ENEM 2016)
+81,Caminhos para combater a intolerância religiosa no Brasil
 82,Os riscos da automedicação e a banalização do uso de remédios no Brasil
 83,O sedentarismo como problema de saúde pública na sociedade contemporânea
 84,Desafios para a fiscalização e o controle do comércio de armas de fogo no mundo atual
