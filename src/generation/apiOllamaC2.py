@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
-INPUT_FILE = os.path.join(BASE_DIR, "temas.csv")
-PROMPTS_FILE = os.path.join(BASE_DIR, "prompts.csv")
+THEMES_FILE = os.path.join(BASE_DIR, "inputs", "temas.csv")
+PROMPTS_FILE = os.path.join(BASE_DIR, "inputs", "prompts.csv")
 
 load_dotenv(dotenv_path=ENV_PATH)
 
@@ -23,11 +23,6 @@ client = Client(
 )
 
 def normalize_model_name(model_name: str) -> str:
-    """
-    Converte o nome do modelo em formato seguro para filename.
-    Ex:
-    'deepseek-v3.1:671b-cloud' -> 'deepseek_v3_1_671b_cloud'
-    """
     import re
 
     sanitized = re.sub(r'[^a-zA-Z0-9]+', '_', model_name)
@@ -35,13 +30,13 @@ def normalize_model_name(model_name: str) -> str:
     return sanitized.strip('_').lower()
 
 
-OUTPUT_BASE_DIR = os.path.join(BASE_DIR, "output")
+OUTPUT_BASE_DIR = os.path.join(BASE_DIR, "outputs")
 DATASET_DIR = os.path.join(OUTPUT_BASE_DIR, "datasets - class 2")
 os.makedirs(DATASET_DIR, exist_ok=True)
 
 MODELS = ["deepseek-v3.1:671b-cloud", "qwen3.5:397b-cloud", "gpt-oss:120b-cloud", "kimi-k2.5:cloud", "gemini-3-flash-preview:cloud"]
-MODEL = MODELS[1]
-OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}3.csv")
+MODEL = MODELS[4]
+OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}2.csv")
 
 
 def load_prompts(path):
@@ -71,9 +66,9 @@ def call_ollama(prompt, retries=3):
 
 
 def main():
-    print(f"Tentando abrir: {INPUT_FILE}")
+    print(f"Tentando abrir: {THEMES_FILE}")
 
-    df = pd.read_csv(INPUT_FILE).iloc[76:77]
+    df = pd.read_csv(THEMES_FILE).iloc[55:56]
     prompts_map = load_prompts(PROMPTS_FILE)
 
     target_profile = "specialist"

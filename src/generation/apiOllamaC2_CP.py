@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
-THEMES_FILE = os.path.join(BASE_DIR, "inputs", "temas.csv")
+AI_TEXTS_FILE = os.path.join(BASE_DIR, "inputs", "ai_essays.csv")
 PROMPTS_FILE = os.path.join(BASE_DIR, "inputs", "prompts.csv")
 
 load_dotenv(dotenv_path=ENV_PATH)
@@ -18,7 +18,8 @@ if not api_key:
 
 client = Client(
     host = "https://ollama.com",
-    headers = {'Authorization': f"Bearer {api_key}"}
+    headers = {'Authorization': f"Bearer {api_key}"},
+    timeout = 180.0
 )
 
 def normalize_model_name(model_name: str) -> str:
@@ -30,21 +31,19 @@ def normalize_model_name(model_name: str) -> str:
 
 
 OUTPUT_BASE_DIR = os.path.join(BASE_DIR, "outputs")
-DATASET_DIR = os.path.join(OUTPUT_BASE_DIR, "datasets - class 1")
+DATASET_DIR = os.path.join(OUTPUT_BASE_DIR, "datasets - class 2")
 os.makedirs(DATASET_DIR, exist_ok=True)
 
 MODELS = ["deepseek-v3.1:671b-cloud", "qwen3.5:397b-cloud", "gpt-oss:120b-cloud", "kimi-k2.5:cloud", "gemini-3-flash-preview:cloud"]
-MODEL = MODELS[3]
-OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}.csv")
+MODEL = MODELS[4]
+OUTPUT_FILE = os.path.join(DATASET_DIR, f"copy_typed_{normalize_model_name(MODEL)}2.csv")
+
 
 def load_prompts(path):
     df = pd.read_csv(path)
 
     if 'perfil' not in df.columns or 'prompt' not in df.columns:
         raise ValueError("prompts.csv deve conter colunas 'perfil' e 'prompt'")
-    
-    # remove o perfil copy_typing
-    df = df[df['perfil'] != 'copy_typing']
 
     return dict(zip(df['perfil'], df['prompt']))
 
@@ -55,7 +54,13 @@ def call_ollama(prompt, retries=3):
             response = client.chat(
                 model = MODEL,
                 messages = [{ "role": "user", "content": prompt }],
-                options = { "temperature": 0.7 }
+                options = { 
+                    "temperature": 0.5,
+                    "top_p": 0.85,
+                    "repeat_penalty": 1.05,
+                    "frequency_penalty": 0.1,
+                    "presence_penalty": 0.05,
+                }
             )
             return response['message']['content'].strip()
         except Exception as e:
@@ -67,32 +72,37 @@ def call_ollama(prompt, retries=3):
 
 
 def main():
-    print(f"Tentando abrir: {THEMES_FILE}")
+    print(f"Tentando abrir: {AI_TEXTS_FILE}")
 
-    df = pd.read_csv(THEMES_FILE).iloc[24:42]
+    df = pd.read_csv(AI_TEXTS_FILE).iloc[10:86]
     prompts_map = load_prompts(PROMPTS_FILE)
+
+    target_profile = "copy_typing"
+    if target_profile not in prompts_map:
+        raise KeyError(f"O perfil '{target_profile}' não foi encontrado no arquivo {PROMPTS_FILE}")
+
+    template = prompts_map[target_profile]
+
+    if "{texto}" not in template:
+        raise ValueError(f"Prompt do perfil '{target_profile}' não contém a tag '{{texto}}'")
 
     results = []
 
-    print(f"Iniciando geração com {MODEL} via Ollama...\n")
+    print(f"Iniciando geração com {MODEL} via Ollama (Perfil restrito: {target_profile})...\n")
 
     for _, row in tqdm(df.iterrows(), total=len(df), desc="Temas"):
-        subject = row['tema']
+        text = row["texto_ia"]
 
-        for profile, template in prompts_map.items():
-            
-            if "{tema}" not in template:
-                raise ValueError(f"Prompt do perfil '{profile}' não contém '{{tema}}'")
+        prompt = template.format(texto=text)
+        copy_typed_essay = call_ollama(prompt)
 
-            prompt = template.format(tema=subject)
-            essay = call_ollama(prompt)
-
-            results.append({
-                "tema": subject,
-                "perfil_prompt": profile,
-                "texto_ia": essay,
-                "fonte_llm": f"Ollama_{MODEL}",
-            })
+        results.append({
+            "tema": row['tema'],
+            "perfil_prompt": target_profile,
+            "texto_ia": text,
+            "texto_copy_typed": copy_typed_essay,
+            "fonte_llm": f"Ollama_{MODEL}",
+        })
 
     df_results = pd.DataFrame(results)
     df_results.to_csv(OUTPUT_FILE, index=False)
