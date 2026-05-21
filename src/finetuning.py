@@ -1,5 +1,4 @@
 import os
-from pyexpat import model
 import numpy as np
 import pandas as pd
 import torch
@@ -7,9 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
 from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
 
@@ -17,7 +14,7 @@ MODEL_NAME = "neuralmind/bert-base-portuguese-cased" #"PORTULAN/albertina-100m-p
 MAX_LEN = 512
 BATCH_SIZE = 8
 EPOCHS = 10
-LR = 2e-5 #LR = 1e-5
+LR = 1e-5 #LR = 2e-5
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class EssayDataset(Dataset):
@@ -59,7 +56,7 @@ class BERTClassifier(nn.Module):
             nn.Linear(256, num_classes)
         )
 
-    def forward(self, input_ids, attention_mask, metrics):
+    def forward(self, input_ids, attention_mask):
         outputs = self.encoder(
             input_ids=input_ids,
             attention_mask=attention_mask
@@ -127,14 +124,14 @@ def tune_thresholds(probs, y_true):
 
     return best_thresholds, best_score    
 
-def entropy(probs):
+def get_entropy(probs):
     return -np.sum(probs * np.log(probs + 1e-12), axis=1) # Entropia de Shannon
 
 def train(model, loader, optimizer, criterion):
     model.train()
     total_loss = 0
 
-    for batch in tqdm(loader):
+    for batch in tqdm(loader, desc="Treinando..."):
         input_ids = batch["input_ids"].to(DEVICE)
         attention_mask = batch["attention_mask"].to(DEVICE)
         labels = batch["label"].to(DEVICE)
@@ -154,19 +151,18 @@ def train(model, loader, optimizer, criterion):
 def evaluate(model, loader, criterion):
     model.eval()
 
-    logits_all = [], probs_all = []
-
+    logits_all, probs_all = [], []
+ 
     preds, true = [], []
     total_loss = 0
 
     with torch.no_grad():
-        for batch in loader:
+        for batch in tqdm(loader, desc="Avaliando"):
             input_ids = batch["input_ids"].to(DEVICE)
             attention_mask = batch["attention_mask"].to(DEVICE)
-            metrics = batch["metrics"].to(DEVICE)
             labels = batch["label"].to(DEVICE)
 
-            logits = model(input_ids, attention_mask, metrics)
+            logits = model(input_ids, attention_mask)
 
             loss = criterion(logits, labels)
             total_loss += loss.item()
@@ -188,7 +184,7 @@ def evaluate(model, loader, criterion):
     true = np.array(true)
 
     avg_loss = total_loss / len(loader)
-    report = classification_report(true, preds, digits=4)
+    report = classification_report(true, preds, digits=4, zero_division=0)
     cm = confusion_matrix(true, preds)
 
     return {
@@ -202,16 +198,19 @@ def evaluate(model, loader, criterion):
     }
 
 def main():
-    df = pd.read_csv("dataset.csv")
+    print("Carregando base de dados...")
+    df = pd.read_csv("generation/inputs/compiled_essays_with_metrics.csv")
 
-    texts = df["texto_copy_typed"].fillna("").tolist()
-
-    label_map = {"humano": 0, "ia": 1, "copy": 2}
-    labels = df["classe"].map(label_map).values
+    texts = df["texto"].fillna("").tolist()
+    labels = df["classe"].values
 
     X_train, X_val, y_train, y_val = train_test_split(
         texts, labels, test_size=0.2, stratify=labels, random_state=42
     )
+
+    print(f"Segmentação do treinamento - Treino: {len(X_train)} | Validação: {len(X_val)}")
+    print(f"Total de textos carregados: {len(texts)}")
+    print(f"Distribuição das classes: {np.bincount(labels)}")
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
@@ -245,7 +244,7 @@ def main():
         print("Confusion Matrix:")
         print(eval_results["confusion_matrix"])
 
-        # TEMPERATURA SCALING
+        # TEMPERATURE SCALING
         logits = eval_results["logits"].to(DEVICE)
         labels_tensor = torch.tensor(eval_results["true"]).to(DEVICE)
 
@@ -253,7 +252,7 @@ def main():
         scaler.fit(logits, labels_tensor)
 
         calibrated_logits = scaler(logits)
-        probs_calibrated = torch.softmax(calibrated_logits, dim=1).cpu().numpy()
+        probs_calibrated = torch.softmax(calibrated_logits, dim=1).detach().cpu().numpy()
 
         # THRESHOLD TUNING
         thresholds, best_score = tune_thresholds(probs_calibrated, eval_results["true"])
@@ -264,43 +263,38 @@ def main():
         preds_threshold = apply_thresholds(probs_calibrated, thresholds)
 
         print("\nReport com threshold tuning:")
-        print(classification_report(eval_results["true"], preds_threshold, digits=4))
+        print(classification_report(eval_results["true"], preds_threshold, digits=4, zero_division=0))
 
-        # UNCERTAINTY ANALYSIS
+        # ANÁLISE DE INCERTEZA
         confidence = np.max(probs_calibrated, axis=1)
-        ent = entropy(probs_calibrated)
+        entropy = get_entropy(probs_calibrated)
 
         print("\nConfiança média:", confidence.mean())
-        print("Entropia média:", ent.mean())
+        print("Entropia média:", entropy.mean())
 
         wrong = preds_threshold != eval_results["true"]
         if np.any(wrong):
             print("Confiança média nos erros:", confidence[wrong].mean())
 
-        # SAVE ANALYSIS
-        df_analysis = pd.DataFrame({
-            "true": eval_results["true"],
-            "pred_base": eval_results["preds"],
-            "pred_threshold": preds_threshold,
-            "confidence": confidence,
-            "entropy": ent
-        })
-
-        df_analysis.to_csv("analise_validacao.csv", index=False)
-
-        eval_results = evaluate(model, val_loader, criterion)
-
-        print(f"Val loss: {eval_results['loss']:.4f}")
-        print(eval_results["report"])
-
-        print("Confusion Matrix:")
-        print(eval_results["confusion_matrix"])
-
         val_loss = eval_results["loss"]
 
         if val_loss < best_loss:
             best_loss = val_loss
-            torch.save(model.state_dict(), "best_model_no_metrics.pt")
+            os.makedirs("generation/outputs", exist_ok=True)
+            torch.save(model.state_dict(), "generation/outputs/best_model_no_metrics.pt")
+
+            # SAVE ANALYSIS
+            df_analysis = pd.DataFrame({
+                "classe_real": eval_results["true"],
+                "classe_predita": eval_results["preds"],
+                "classe_predita_com_threshold": preds_threshold,
+                "confianca": confidence,
+                "entropia": entropy
+            })
+
+            df_analysis.to_csv("generation/outputs/validation_analysis_no_metrics.csv", index=False)
+
+
             patience_counter = 0
         else:
             patience_counter += 1
