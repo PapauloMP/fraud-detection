@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
 import json
+import joblib
 
 import torch
 import torch.nn as nn
@@ -12,16 +13,18 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, confusion_matrix
 from tqdm import tqdm
 
-MODEL_NAME = "neuralmind/bert-base-portuguese-cased" #"PORTULAN/albertina-100m-portuguese-ptbr-encoder" 
+MODEL_NAME = "neuralmind/bert-base-portuguese-cased" 
 MAX_LEN = 512
 BATCH_SIZE = 8
 EPOCHS = 10
-LR = 1e-5 #LR = 2e-5
+LR = 1e-5 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+INPUT_CSV = "generation/inputs/extended_dataset_with_features.csv"
 OUTPUT_DIR = "generation/outputs"
 LOG_DIR = os.path.join(OUTPUT_DIR, "logs")
 PLOT_DIR = os.path.join(OUTPUT_DIR, "plots")
@@ -35,10 +38,11 @@ os.makedirs(ANALYSIS_DIR, exist_ok=True)
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-LOG_FILE = os.path.join(LOG_DIR, f"training_{timestamp}.log")
-PLOT_FILE = os.path.join(PLOT_DIR, f"loss_curve_{timestamp}.png")
-MODEL_FILE = os.path.join(MODEL_DIR, f"best_extended_model_no_metrics_{timestamp}.pt")
-ANALYSIS_FILE = os.path.join(ANALYSIS_DIR, f"validation_analysis_no_metrics_{timestamp}.csv")
+LOG_FILE = os.path.join(LOG_DIR, f"training_hybrid_{timestamp}.log")
+PLOT_FILE = os.path.join(PLOT_DIR, f"loss_curve_hybrid_{timestamp}.png")
+MODEL_FILE = os.path.join(MODEL_DIR, f"best_hybrid_model_{timestamp}.pt")
+ANALYSIS_FILE = os.path.join(ANALYSIS_DIR, f"validation_analysis_hybrid_{timestamp}.csv")
+SCALER_FILE = os.path.join(MODEL_DIR, f"metrics_scaler_{timestamp}.pkl")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -48,12 +52,12 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
 logger = logging.getLogger(__name__)
 
-class EssayDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer):
+class HybridEssayDataset(Dataset):
+    def __init__(self, texts, metrics, labels, tokenizer):
         self.texts = texts
+        self.metrics = metrics
         self.labels = labels
         self.tokenizer = tokenizer
 
@@ -72,34 +76,35 @@ class EssayDataset(Dataset):
         return {
             "input_ids": encoding["input_ids"].squeeze(0),
             "attention_mask": encoding["attention_mask"].squeeze(0),
+            "metrics": torch.tensor(self.metrics[idx], dtype=torch.float),
             "label": torch.tensor(self.labels[idx], dtype=torch.long)
         }
 
-class BERTClassifier(nn.Module):
-    def __init__(self, model_name, num_classes):
+class HybridModel(nn.Module):
+    def __init__(self, model_name, num_metrics, num_classes):
         super().__init__()
-
         self.encoder = AutoModel.from_pretrained(model_name)
-
         hidden_size = self.encoder.config.hidden_size  # 768
 
-        self.classifier = nn.Sequential(
-            nn.Linear(hidden_size, 256),
+        self.metrics_proj = nn.Sequential(
+            nn.Linear(num_metrics, 32),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.2)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_size + 32, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3), #nn.Dropout(0.4)
             nn.Linear(256, num_classes)
         )
 
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids, attention_mask, metrics):
         outputs = self.encoder(
-            input_ids=input_ids,
+            input_ids=input_ids, 
             attention_mask=attention_mask
         )
-
-        # cls = outputs.last_hidden_state[:, 0, :]  # CLS token - SIMPLIFICAÇÃO (USA APENAS O CLS QUE É O CONTEXTO GERAL)
-        #pooled_output = torch.mean(outputs.last_hidden_state, dim=1)
-        # Usar todos os vetores da saída para um novo classificador 
-
+        
         # Masked mean pooling para ignorar os tokens de padding visto que foi fixado o tamanho máximo de 512 tokens
         token_embeddings = outputs.last_hidden_state 
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
@@ -107,7 +112,10 @@ class BERTClassifier(nn.Module):
         sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
         pooled_output = sum_embeddings / sum_mask
 
-        logits = self.classifier(pooled_output)
+        metrics_feat = self.metrics_proj(metrics)
+        combined = torch.cat([pooled_output, metrics_feat], dim=1)
+
+        logits = self.classifier(combined)
 
         return logits
 
@@ -133,13 +141,13 @@ class TemperatureScaler(nn.Module):
 
         optimizer.step(closure)
         return self
-    
+
 def apply_thresholds(probs, thresholds):
     preds = []
 
     for p in probs:
         passed = [i for i in range(len(p)) if p[i] >= thresholds[i]]
-
+        
         if len(passed) == 1:
             preds.append(passed[0])
         else:
@@ -175,12 +183,13 @@ def train(model, loader, optimizer, criterion):
     for batch in tqdm(loader, desc="Training..."):
         input_ids = batch["input_ids"].to(DEVICE)
         attention_mask = batch["attention_mask"].to(DEVICE)
+        metrics = batch["metrics"].to(DEVICE)
         labels = batch["label"].to(DEVICE)
 
         optimizer.zero_grad()
 
-        outputs = model(input_ids, attention_mask)
-
+        outputs = model(input_ids, attention_mask, metrics)
+        
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -191,19 +200,17 @@ def train(model, loader, optimizer, criterion):
 
 def evaluate(model, loader, criterion):
     model.eval()
-
-    logits_all, probs_all = [], []
-
-    preds, true = [], []
+    logits_all, probs_all, preds, true = [], [], [], []
     total_loss = 0
 
     with torch.no_grad():
         for batch in tqdm(loader, desc="Evaluating"):
             input_ids = batch["input_ids"].to(DEVICE)
             attention_mask = batch["attention_mask"].to(DEVICE)
+            metrics = batch["metrics"].to(DEVICE)
             labels = batch["label"].to(DEVICE)
 
-            logits = model(input_ids, attention_mask)
+            logits = model(input_ids, attention_mask, metrics)
 
             loss = criterion(logits, labels)
             total_loss += loss.item()
@@ -214,7 +221,7 @@ def evaluate(model, loader, criterion):
 
             logits_all.append(logits.cpu())
             probs_all.append(probs.cpu())
-
+            
             preds.extend(predictions.cpu().numpy())
             true.extend(labels.cpu().numpy())
 
@@ -245,7 +252,7 @@ def save_loss_plot(train_losses, val_losses, output_path):
 
     plt.plot(epochs, train_losses, label="Train Loss")
     plt.plot(epochs, val_losses, label="Validation Loss")
-
+    
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Train Loss vs Validation Loss")
@@ -257,23 +264,36 @@ def save_loss_plot(train_losses, val_losses, output_path):
 
 def main():
     logger.info("Loading dataset...")
-    df = pd.read_csv("generation/inputs/extended_dataset.csv")
+    df = pd.read_csv(INPUT_CSV)
 
     texts = df["texto"].fillna("").tolist()
     labels = df["classe"].values
 
-    X_train, X_val, y_train, y_val = train_test_split(
-        texts, labels, test_size=0.2, stratify=labels, random_state=42
+    metric_cols = [
+        "burstiness", "mtld", #"qtd_oov", "taxa_oov", "qtd_palavra",
+        "densidade_de_pontuacao", "qtd_virgula", "qtd_ponto_e_virgula", "qtd_ponto"
+    ]
+    metrics_raw = df[metric_cols].fillna(0).values
+
+    X_train, X_val, m_train, m_val, y_train, y_val = train_test_split(
+        texts, metrics_raw, labels, test_size=0.2, stratify=labels, random_state=42
     )
 
     logger.info(f"Training segmentation - Train: {len(X_train)} | Validation: {len(X_val)}")
     logger.info(f"Total texts: {len(texts)}")
     logger.info(f"Class distribution: {np.bincount(labels)}")
+    logger.info(f"Features in use: {len(metric_cols)}")
+
+    # NORMALIZAÇÃO
+    scaler = StandardScaler()
+    m_train_scaled = scaler.fit_transform(m_train)
+    m_val_scaled = scaler.transform(m_val)
+    joblib.dump(scaler, SCALER_FILE)
+    logger.info("Scaler fitted and saved.")
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-
-    train_dataset = EssayDataset(X_train, y_train, tokenizer)
-    val_dataset = EssayDataset(X_val, y_val, tokenizer)
+    train_dataset = HybridEssayDataset(X_train, m_train_scaled, y_train, tokenizer)
+    val_dataset = HybridEssayDataset(X_val, m_val_scaled, y_val, tokenizer)
 
     train_loader = DataLoader(
         train_dataset,
@@ -283,12 +303,12 @@ def main():
     )
 
     val_loader = DataLoader(
-        val_dataset, 
+        val_dataset,
         batch_size=BATCH_SIZE,
-        pin_memory=True,
+        pin_memory=True
     )
 
-    model = BERTClassifier(MODEL_NAME, num_classes=3)
+    model = HybridModel(MODEL_NAME, num_metrics=len(metric_cols), num_classes=3)
     model.to(DEVICE)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.01)
@@ -321,7 +341,7 @@ def main():
         # TEMPERATURE SCALING
         logits = eval_results["logits"].to(DEVICE)
         labels_tensor = torch.tensor(eval_results["true"]).to(DEVICE)
-
+        
         temp_scaler = TemperatureScaler()
         temp_scaler.fit(logits, labels_tensor)
 
@@ -357,7 +377,8 @@ def main():
                 "epoch": epoch,
                 "loss": float(val_loss),
                 "thresholds": [float(t) for t in thresholds],
-                "temperature": float(temp_scaler.temperature.item())
+                "temperature": float(temp_scaler.temperature.item()),
+                "features_used": metric_cols
             }
 
             config_file = MODEL_FILE.replace(".pt", "_config.json")
@@ -375,7 +396,7 @@ def main():
 
             df_analysis.to_csv(ANALYSIS_FILE, index=False)
 
-            logger.info("New best model saved.")
+            logger.info("New best hybrid model saved.")
 
             patience_counter = 0
         else:

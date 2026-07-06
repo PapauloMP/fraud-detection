@@ -15,10 +15,10 @@ MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
 MAX_LEN = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-WEIGHTS_PATH = "generation/outputs/models/best_model_no_metrics_20260521_031048.pt"
+WEIGHTS_PATH = "generation/outputs/models/best_extended_model_no_metrics_20260603_145336.pt"
 CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
 DATASET_PATH = "generation/inputs/test_dataset.csv"
-OUTPUT_DIR = "generation/outputs/analysis"
+OUTPUT_DIR = "generation/outputs/analysis/shap"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -110,9 +110,10 @@ def main():
         shap_values = explainer(class_texts)
         
         class_file_name = class_name.lower().replace(' ', '_').replace('-', '_')
-        plot_file = os.path.join(OUTPUT_DIR, f"shap_vazamento_{class_file_name}.png")
-        html_file = os.path.join(OUTPUT_DIR, f"shap_auditoria_{class_file_name}.html")
+        plot_file = os.path.join(OUTPUT_DIR, f"shap_bar_plot_{class_file_name}.png")
+        html_file = os.path.join(OUTPUT_DIR, f"shap_report_{class_file_name}.html")
         
+        # SHAP bar plot
         print(f"Salvando gráfico global para '{class_name}'...")
         plt.figure(figsize=(10, 8))
         shap.plots.bar(shap_values[:, :, class_name], max_display=20, show=False)
@@ -120,7 +121,7 @@ def main():
         plt.tight_layout()
         plt.savefig(plot_file, dpi=300, bbox_inches='tight')
         plt.close()
-        
+
         print(f"Salvando relatório HTML para '{class_name}'...")
         html_content = shap.plots.text(shap_values, display=False)
         with open(html_file, "w", encoding="utf-8") as f:

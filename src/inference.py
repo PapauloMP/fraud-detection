@@ -19,7 +19,7 @@ from captum.attr import visualization as viz
 MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
 MAX_LEN = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-WEIGHTS_PATH = "generation/outputs/models/best_extended_model_no_metrics_20260603_145336.pt" #"generation/outputs/models/best_model_no_metrics_20260521_031048.pt"
+WEIGHTS_PATH = "generation/outputs/models/best_extended_model_no_metrics_20260603_145336.pt"  #"generation/outputs/models/best_model_no_metrics_20260521_031048.pt" 
 CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
 TEST_DATASET_PATH = "generation/inputs/test_dataset.csv"
 LIME_OUTPUT_DIR = "generation/outputs/analysis/lime"
@@ -137,14 +137,40 @@ def evaluate_test_dataset(model, tokenizer, temperature, thresholds, labels_map)
     
     y_pred = [apply_single_threshold(p, thresholds) for p in probs_array]
 
+    # CÁLCULO DA ANÁLISE DE INCERTEZA GLOBAL (ENTROPIA E CONFIANÇA)
+    confidences = [probs_array[i][y_pred[i]] for i in range(len(y_pred))]
+    mean_confidence = np.mean(confidences)
+
+    entropies = [get_entropy(p) for p in probs_array]
+    mean_entropy = np.mean(entropies)
+
+    errors_confidences = [confidences[i] for i in range(len(y_pred)) if y_true[i] != y_pred[i]]
+    if len(errors_confidences) > 0:
+        mean_confidence_errors = np.mean(errors_confidences)
+    else:
+        mean_confidence_errors = 0.0 
+
+    # RELATÓRIO
     class_names = [labels_map[0], labels_map[1], labels_map[2]]
 
     cm = confusion_matrix(y_true, y_pred)
     cr_text = classification_report(y_true, y_pred, target_names=class_names)
     cr_dict = classification_report(y_true, y_pred, target_names=class_names, output_dict=True)
+    cr_dict["uncertainty_analysis"] = {
+        "mean_confidence": float(mean_confidence),
+        "mean_confidence_errors": float(mean_confidence_errors),
+        "mean_entropy": float(mean_entropy)
+    }
 
     print("\nRELATÓRIO DE CLASSIFICAÇÃO:")
     print(cr_text)
+
+    print("\n" + "-"*60)
+    print("ANÁLISE DE INCERTEZA:")
+    print(f"Confiança Média Predita : {mean_confidence * 100:.2f}%")
+    print(f"Confiança Média nos Erros: {mean_confidence_errors * 100:.2f}%")
+    print(f"Entropia Média (Shannon) : {mean_entropy:.4f}")
+    print("-" * 60)
 
     now = datetime.now().strftime('%Y%m%d_%H%M%S')
 
