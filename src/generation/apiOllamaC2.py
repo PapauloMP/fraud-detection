@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
-THEMES_FILE = os.path.join(PROJECT_ROOT, "inputs", "temas.csv")
+THEMES_FILE = os.path.join(PROJECT_ROOT, "inputs", "topics.csv")
 PROMPTS_FILE = os.path.join(PROJECT_ROOT, "inputs", "prompts.csv")
 
 load_dotenv(dotenv_path=ENV_PATH)

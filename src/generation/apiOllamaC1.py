@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
-THEMES_FILE = os.path.join(PROJECT_ROOT, "inputs", "temas.csv")
+TOPICS_FILE = os.path.join(PROJECT_ROOT, "inputs", "topics.csv")
 PROMPTS_FILE = os.path.join(PROJECT_ROOT, "inputs", "prompts.csv")
 
 load_dotenv(dotenv_path=ENV_PATH)
@@ -68,9 +68,9 @@ def call_ollama(prompt, retries=3):
 
 
 def main():
-    print(f"Tentando abrir: {THEMES_FILE}")
+    print(f"Tentando abrir: {TOPICS_FILE}")
 
-    df = pd.read_csv(THEMES_FILE).iloc[0:1]
+    df = pd.read_csv(TOPICS_FILE).iloc[0:1]
     prompts_map = load_prompts(PROMPTS_FILE)
 
     results = []
