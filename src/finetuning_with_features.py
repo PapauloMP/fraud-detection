@@ -24,8 +24,10 @@ EPOCHS = 10
 LR = 1e-5 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INPUT_CSV = "generation/inputs/extended_dataset_with_features.csv"
-OUTPUT_DIR = "generation/outputs"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+INPUT_FILE = os.path.join(PROJECT_ROOT, "inputs", "datasets", "extended_dataset.csv")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
 LOG_DIR = os.path.join(OUTPUT_DIR, "logs")
 PLOT_DIR = os.path.join(OUTPUT_DIR, "plots")
 MODEL_DIR = os.path.join(OUTPUT_DIR, "models")
@@ -264,7 +266,7 @@ def save_loss_plot(train_losses, val_losses, output_path):
 
 def main():
     logger.info("Loading dataset...")
-    df = pd.read_csv(INPUT_CSV)
+    df = pd.read_csv(INPUT_FILE)
 
     texts = df["texto"].fillna("").tolist()
     labels = df["classe"].values

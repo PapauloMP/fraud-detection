@@ -19,12 +19,19 @@ from captum.attr import visualization as viz
 MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
 MAX_LEN = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-WEIGHTS_PATH = "generation/outputs/models/best_extended_model_no_metrics_20260603_145336.pt"  #"generation/outputs/models/best_model_no_metrics_20260521_031048.pt" 
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
+
+WEIGHTS_PATH = os.path.join(OUTPUT_DIR, "models", "best_extended_model_no_metrics_20260719_015113.pt")
 CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
-TEST_DATASET_PATH = "generation/inputs/test_dataset.csv"
-LIME_OUTPUT_DIR = "generation/outputs/analysis/lime"
-INFERENCE_OUTPUT_DIR = "generation/outputs/analysis/inference"
-CAPTUM_OUTPUT_DIR = "generation/outputs/analysis/captum"
+TEST_DATASET_PATH = os.path.join(PROJECT_ROOT, "inputs", "datasets", "test_dataset.csv")
+
+ANALYSIS_DIR = os.path.join(OUTPUT_DIR, "analysis")
+LIME_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "lime")
+CAPTUM_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "captum")
+INFERENCE_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "inference")
 
 os.makedirs(LIME_OUTPUT_DIR, exist_ok=True)
 os.makedirs(INFERENCE_OUTPUT_DIR, exist_ok=True)
@@ -233,7 +240,7 @@ def main():
         print("\n" + "="*50)
         print("MENU PRINCIPAL - DETECÇÃO DE FRAUDE")
         print("="*50)
-        print(" [1] Analisar redações (com LIME)")
+        print(" [1] Analisar redações (com LIME e IG)")
         print(" [2] Avaliar o dataset de teste")
         print(" [3] Sair do Sistema")
         print("="*50)
@@ -241,7 +248,7 @@ def main():
         option = input("Escolha uma opção: ").strip()
         
         if option == '3':
-            print("Encerrando o sistema...")
+            print("Encerrando o sistemsaa...")
             break
             
         elif option == '2':

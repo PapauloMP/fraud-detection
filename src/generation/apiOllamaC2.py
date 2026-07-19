@@ -6,9 +6,10 @@ from ollama import Client
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH = os.path.join(BASE_DIR, ".env")
-THEMES_FILE = os.path.join(BASE_DIR, "inputs", "temas.csv")
-PROMPTS_FILE = os.path.join(BASE_DIR, "inputs", "prompts.csv")
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
+THEMES_FILE = os.path.join(PROJECT_ROOT, "inputs", "temas.csv")
+PROMPTS_FILE = os.path.join(PROJECT_ROOT, "inputs", "prompts.csv")
 
 load_dotenv(dotenv_path=ENV_PATH)
 
@@ -30,13 +31,13 @@ def normalize_model_name(model_name: str) -> str:
     return sanitized.strip('_').lower()
 
 
-OUTPUT_BASE_DIR = os.path.join(BASE_DIR, "outputs")
-DATASET_DIR = os.path.join(OUTPUT_BASE_DIR, "datasets - class 2")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
+DATASET_DIR = os.path.join(OUTPUT_DIR, "datasets - class 2")
 os.makedirs(DATASET_DIR, exist_ok=True)
 
 MODELS = ["deepseek-v3.1:671b-cloud", "qwen3.5:397b-cloud", "gpt-oss:120b-cloud", "kimi-k2.5:cloud", "gemini-3-flash-preview:cloud"]
 MODEL = MODELS[4]
-OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}2.csv")
+OUTPUT_FILE = os.path.join(DATASET_DIR, f"dataset_ia_{normalize_model_name(MODEL)}.csv")
 
 
 def load_prompts(path):
@@ -68,7 +69,7 @@ def call_ollama(prompt, retries=3):
 def main():
     print(f"Tentando abrir: {THEMES_FILE}")
 
-    df = pd.read_csv(THEMES_FILE).iloc[55:56]
+    df = pd.read_csv(THEMES_FILE).iloc[0:1]
     prompts_map = load_prompts(PROMPTS_FILE)
 
     target_profile = "specialist"

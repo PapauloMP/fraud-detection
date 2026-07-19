@@ -9,8 +9,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INPUT_FILE = os.path.join(BASE_DIR, "inputs", "cp_essays.csv")
-OUTPUT_FILE = os.path.join(BASE_DIR, "outputs", "cp_essays_metrics.csv")
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+INPUT_FILE = os.path.join(PROJECT_ROOT, "inputs", "datasets", "cp_essays.csv")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, "cp_essays_metrics.csv")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def get_burstiness(text):
     phrases = re.split(r'[.!?]+', text)

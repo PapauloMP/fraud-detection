@@ -6,10 +6,11 @@ from tqdm import tqdm
 from spellchecker import SpellChecker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 INPUT_FILE_NAME = "extended_dataset"
-INPUT_FILE = os.path.join(BASE_DIR, "inputs", f"{INPUT_FILE_NAME}.csv")
+INPUT_FILE = os.path.join(PROJECT_ROOT, "inputs", "datasets", f"{INPUT_FILE_NAME}.csv")
 
-OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, f"{INPUT_FILE_NAME}_with_features.csv")
 

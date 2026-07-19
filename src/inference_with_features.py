@@ -24,18 +24,23 @@ MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
 MAX_LEN = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-WEIGHTS_PATH = "generation/outputs/models/best_extended_hybrid_model_20260620_205437.pt" # "generation/outputs/models/best_hybrid_model_20260607_214345.pt"   
-CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
-TEST_DATASET_PATH = "generation/inputs/test_dataset.csv"
-model_dir = os.path.dirname(WEIGHTS_PATH)
-timestamp = WEIGHTS_PATH.replace(".pt", "")[-15:]
-SCALER_PATH = os.path.join(model_dir, f"metrics_scaler_{timestamp}.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
 
-OUTPUT_DIR = "generation/outputs/analysis"
-LIME_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "lime")
-SHAP_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "shap")
-CAPTUM_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "captum")
-INFERENCE_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "inference")
+WEIGHTS_PATH = os.path.join(OUTPUT_DIR, "models", "INSERT_MODEL_NAME_HERE.pt")
+CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
+TEST_DATASET_PATH = os.path.join(PROJECT_ROOT, "inputs", "datasets", "test_dataset.csv")
+
+MODEL_DIR = os.path.dirname(WEIGHTS_PATH)
+timestamp = WEIGHTS_PATH.replace(".pt", "")[-15:]
+SCALER_PATH = os.path.join(MODEL_DIR, f"metrics_scaler_{timestamp}.pkl")
+
+ANALYSIS_DIR = os.path.join(OUTPUT_DIR, "analysis")
+LIME_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "lime")
+SHAP_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "shap")
+CAPTUM_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "captum")
+INFERENCE_OUTPUT_DIR = os.path.join(ANALYSIS_DIR, "inference")
 
 for d in [LIME_OUTPUT_DIR, SHAP_OUTPUT_DIR, CAPTUM_OUTPUT_DIR, INFERENCE_OUTPUT_DIR]:
     os.makedirs(d, exist_ok=True)
@@ -260,6 +265,11 @@ def main():
     class_names = [labels_map[0], labels_map[1], labels_map[2]]
     
     def xai_predict_wrapper(texts):
+        if isinstance(texts, np.ndarray):
+            texts = texts.tolist()
+        elif isinstance(texts, str):
+            texts = [texts]
+
         return predict_batch(texts, model, tokenizer, temperature, use_features, feature_cols, scaler)
         
     explainer_lime = LimeTextExplainer(class_names=class_names)
@@ -271,7 +281,7 @@ def main():
     
     while True:
         print("\n" + "="*50)
-        print("MENU PRINCIPAL - AUDITORIA FORENSE")
+        print("MENU PRINCIPAL - DETECÇÃO DE FRAUDE")
         print("="*50)
         print(" [1] Analisar uma Redação (Completo com LIME/SHAP/IG)")
         print(" [2] Avaliar o Dataset de Teste em Lote")

@@ -15,12 +15,16 @@ MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
 MAX_LEN = 512
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-WEIGHTS_PATH = "generation/outputs/models/best_extended_model_no_metrics_20260603_145336.pt"
-CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
-DATASET_PATH = "generation/inputs/test_dataset.csv"
-OUTPUT_DIR = "generation/outputs/analysis/shap"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "outputs")
 
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+WEIGHTS_PATH = os.path.join(OUTPUT_DIR, "models", "best_extended_model_no_metrics_20260719_015113.pt")
+CONFIG_PATH = WEIGHTS_PATH.replace(".pt", "_config.json")
+DATASET_PATH = os.path.join(PROJECT_ROOT, "inputs", "datasets", "test_dataset.csv")
+SHAP_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "analysis", "shap")
+
+os.makedirs(SHAP_OUTPUT_DIR, exist_ok=True)
 
 class BERTClassifier(nn.Module):
     def __init__(self, model_name, num_classes):
@@ -110,8 +114,8 @@ def main():
         shap_values = explainer(class_texts)
         
         class_file_name = class_name.lower().replace(' ', '_').replace('-', '_')
-        plot_file = os.path.join(OUTPUT_DIR, f"shap_bar_plot_{class_file_name}.png")
-        html_file = os.path.join(OUTPUT_DIR, f"shap_report_{class_file_name}.html")
+        plot_file = os.path.join(SHAP_OUTPUT_DIR, f"shap_bar_plot_{class_file_name}.png")
+        html_file = os.path.join(SHAP_OUTPUT_DIR, f"shap_report_{class_file_name}.html")
         
         # SHAP bar plot
         print(f"Salvando gráfico global para '{class_name}'...")
