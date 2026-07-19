@@ -3,7 +3,6 @@ import re
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from spellchecker import SpellChecker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
@@ -16,7 +15,6 @@ OUTPUT_FILE = os.path.join(OUTPUT_DIR, f"{INPUT_FILE_NAME}_with_features.csv")
 
 TOKEN_REGEX = re.compile(r"\b[a-zà-ÿ]+\b")
 PUNCTUATION_REGEX = re.compile(r"[.,;:!?()\"'—-]")
-spell = SpellChecker(language="pt")
 
 def tokenize(text):
     return TOKEN_REGEX.findall(text.lower())
@@ -70,19 +68,6 @@ def get_mtld(words, ttr_threshold=0.72):
 
     return round((forward_mtld + backward_mtld) / 2, 4)
 
-def get_spelling_features(words):
-    if not words:
-        return { "qtd_oov": 0, "taxa_oov": 0.0, "palavras_oov": [] }
-
-    unknown_words = spell.unknown(words)
-    oov_count = len(unknown_words)
-
-    return {
-        "qtd_oov": oov_count,
-        "taxa_oov": round(oov_count / len(words), 4),
-        "palavras_oov": list(unknown_words)
-    }
-
 def get_punctuation_features(text, words):
     if not words:
         return { "densidade_de_pontuacao": 0.0, "qtd_virgula": 0, "qtd_ponto_e_virgula": 0, "qtd_pontos": 0}
@@ -118,8 +103,6 @@ def extract_features(text):
         "mtld": get_mtld(words),
     }
 
-    features.update(get_spelling_features(words))
-
     features.update(get_punctuation_features(text, words))
 
     return features
@@ -149,9 +132,6 @@ if __name__ == "__main__":
         }
         
         row_data.update(features)
-        
-        if "palavras_oov" in row_data:
-            row_data["palavras_oov"] = ", ".join(row_data["palavras_oov"])
 
         processed_rows.append(row_data)
 
